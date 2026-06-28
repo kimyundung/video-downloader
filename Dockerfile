@@ -1,13 +1,20 @@
 FROM node:20-slim
 
-# 安装 Python 和 yt-dlp
+# 安装 Python, yt-dlp, deno (YouTube JS runtime)
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg \
+    unzip \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install yt-dlp --break-system-packages
+
+# 安装 deno (yt-dlp 需要 JS runtime 解析 YouTube)
+RUN curl -fsSL https://deno.land/install.sh | sh -s -- -y
+ENV DENO_INSTALL="/root/.deno"
+ENV PATH="${DENO_INSTALL}/bin:${PATH}"
 
 # 创建 app 目录
 WORKDIR /app
