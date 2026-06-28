@@ -85,6 +85,7 @@ app.get('/api/info', (req, res) => {
   const proc = spawn(YT_DLP, [
     '--dump-json',
     '--no-playlist',
+    '--remote-components', 'ejs:github',
     ...(HAS_COOKIES ? ['--cookies', COOKIES_FILE] : []),
     ...(isYouTube ? ['--extractor-args', HAS_COOKIES ? 'youtube:player_client=ios' : 'youtube:player_client=web_safari'] : []),
     url
@@ -137,7 +138,7 @@ app.post('/api/download', (req, res) => {
 
   // 构建 yt-dlp 参数
   const outputTemplate = path.join(DOWNLOADS_DIR, `%(title).100s_%(id)s.%(ext)s`);
-  const args = ['--newline', '--no-playlist', '--embed-thumbnail', '--embed-metadata'];
+  const args = ['--newline', '--no-playlist', '--embed-thumbnail', '--embed-metadata', '--remote-components', 'ejs:github'];
 
   // 如果有 cookie 文件，加上
   if (HAS_COOKIES) {
