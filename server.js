@@ -100,10 +100,10 @@ app.get('/api/info', (req, res) => {
 
   const isYouTube = /youtube\.com|youtu\.be/.test(url);
 
-  // 多个 player_client 逐个尝试
+  // 多个播放客户端策略，优先用不指定客户端的默认方式（自动选择最佳画质）
   const playerClients = [
+    '',
     'youtube:player_client=android',
-    HAS_COOKIES ? 'youtube:player_client=ios' : 'youtube:player_client=web_safari',
     'youtube:player_client=web',
   ];
 
@@ -124,9 +124,12 @@ app.get('/api/info', (req, res) => {
       '--no-playlist',
       '--remote-components', 'ejs:github',
       ...(HAS_COOKIES ? ['--cookies', COOKIES_FILE] : []),
-      '--extractor-args', clients[idx],
-      url
     ];
+    // 如果客户端不是空字符串，加上 extractor-args
+    if (clients[idx]) {
+      args.push('--extractor-args', clients[idx]);
+    }
+    args.push(url);
 
     const proc = spawn(YT_DLP, args);
     let pStdout = '';
@@ -189,8 +192,8 @@ app.post('/api/download', (req, res) => {
   const isYouTube = /youtube\.com|youtu\.be/.test(url);
 
   if (isYouTube) {
-    // YouTube: 优先用 android 客户端（兼容性好，不需要 cookie）
-    args.push('--extractor-args', 'youtube:player_client=android');
+    // YouTube: 让 yt-dlp 自动选客户端（不指定 extractor-args，兼容性最好）
+    // 不强制客户端，yt-dlp 会自动用 web + android 混合获取最高画质
   }
 
   if (isXiaohongshu) {
