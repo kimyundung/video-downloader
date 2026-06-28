@@ -25,6 +25,19 @@ function findYtDlp() {
 const YT_DLP = findYtDlp();
 console.log(`🔧 Using yt-dlp: ${YT_DLP}`);
 
+// ---- Cookie 文件 ----
+const COOKIES_FILE = path.join(__dirname, 'cookies.txt');
+const COOKIES_B64 = process.env.YT_COOKIES_B64;
+if (COOKIES_B64) {
+  try {
+    fs.writeFileSync(COOKIES_FILE, Buffer.from(COOKIES_B64, 'base64'));
+    console.log('🍪 Cookies written from env');
+  } catch (e) {
+    console.log('⚠️  Failed to write cookies:', e.message);
+  }
+}
+const HAS_COOKIES = COOKIES_B64 && fs.existsSync(COOKIES_FILE);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -70,7 +83,8 @@ app.get('/api/info', (req, res) => {
   const proc = spawn(YT_DLP, [
     '--dump-json',
     '--no-playlist',
-    '--extractor-args', 'youtube:player_client=ios',
+    ...(HAS_COOKIES ? ['--cookies', COOKIES_FILE] : []),
+    ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios'] : []),
     url
   ]);
 
@@ -122,6 +136,11 @@ app.post('/api/download', (req, res) => {
   // 构建 yt-dlp 参数
   const outputTemplate = path.join(DOWNLOADS_DIR, `%(title).100s_%(id)s.%(ext)s`);
   const args = ['--newline', '--no-playlist', '--embed-thumbnail', '--embed-metadata'];
+
+  // 如果有 cookie 文件，加上
+  if (HAS_COOKIES) {
+    args.push('--cookies', COOKIES_FILE);
+  }
 
   // 检测平台并添加对应参数
   const isXiaohongshu = /xiaohongshu\.com|xhslink/.test(url);
