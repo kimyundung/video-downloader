@@ -84,7 +84,7 @@ app.get('/api/info', (req, res) => {
     '--dump-json',
     '--no-playlist',
     ...(HAS_COOKIES ? ['--cookies', COOKIES_FILE] : []),
-    ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios'] : []),
+    ...(isYouTube ? ['--extractor-args', HAS_COOKIES ? 'youtube:player_client=ios' : 'youtube:player_client=web_safari'] : []),
     url
   ]);
 
@@ -147,8 +147,12 @@ app.post('/api/download', (req, res) => {
   const isYouTube = /youtube\.com|youtu\.be/.test(url);
 
   if (isYouTube) {
-    // YouTube: 使用 ios 客户端避免 cookie 验证
-    args.push('--extractor-args', 'youtube:player_client=ios');
+    // YouTube: 尝试 ios 客户端，如果没 cookie 则用 web_safari
+    if (HAS_COOKIES) {
+      args.push('--extractor-args', 'youtube:player_client=ios');
+    } else {
+      args.push('--extractor-args', 'youtube:player_client=web_safari');
+    }
   }
 
   if (isXiaohongshu) {
