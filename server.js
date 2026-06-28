@@ -25,6 +25,37 @@ function findYtDlp() {
 const YT_DLP = findYtDlp();
 console.log(`🔧 Using yt-dlp: ${YT_DLP}`);
 
+// ---- Cookie 文件 ----
+const COOKIES_FILE = path.join(__dirname, 'cookies.txt');
+const zlib = require('zlib');
+
+function writeCookies() {
+  // 尝试环境变量（gzip base64）
+  const b64 = process.env.YT_COOKIES_B64;
+  if (b64) {
+    try {
+      const compressed = Buffer.from(b64, 'base64');
+      const decoded = zlib.gunzipSync(compressed);
+      fs.writeFileSync(COOKIES_FILE, decoded);
+      console.log('🍪 Cookies written from env (gzipped)');
+      return true;
+    } catch (e) {
+      // 可能是非压缩的 base64
+      try {
+        const decoded = Buffer.from(b64, 'base64');
+        fs.writeFileSync(COOKIES_FILE, decoded);
+        console.log('🍪 Cookies written from env (raw)');
+        return true;
+      } catch (e2) {
+        console.log('⚠️  Failed to write cookies:', e2.message);
+      }
+    }
+  }
+  return false;
+}
+
+const HAS_COOKIES = writeCookies();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -67,48 +98,74 @@ app.get('/api/info', (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing url parameter' });
 
-  const proc = spawn(YT_DLP, [
-    '--dump-json',
-    '--no-playlist',
-    url
-  ]);
+  const isYouTube = /youtube\.com|youtu\.be/.test(url);
 
-  let stdout = '';
-  let stderr = '';
+  // 多个 player_client 逐个尝试
+  const playerClients = [
+    'youtube:player_client=android',
+    HAS_COOKIES ? 'youtube:player_client=ios' : 'youtube:player_client=web_safari',
+    'youtube:player_client=web',
+  ];
 
-  proc.stdout.on('data', (d) => { stdout += d.toString(); });
-  proc.stderr.on('data', (d) => { stderr += d.toString(); });
+  let lastError = '';
 
-  proc.on('close', (code) => {
-    if (code !== 0 || !stdout) {
+  tryRun(playerClients, 0);
+
+  function tryRun(clients, idx) {
+    if (idx >= clients.length) {
       return res.status(400).json({
         error: 'Failed to fetch video info',
-        detail: stderr.slice(0, 500)
+        detail: lastError.slice(0, 500)
       });
     }
-    try {
-      const info = JSON.parse(stdout.split('\n')[0]);
-      res.json({
-        title: info.title || info.display_id || '未知标题',
-        duration: info.duration,
-        thumbnail: info.thumbnail,
-        uploader: info.uploader || info.channel || info.creator || '',
-        durationString: formatDuration(info.duration),
-        formats: (info.formats || [])
-          .filter(f => f.filesize || f.filesize_approx)
-          .map(f => ({
-            format_id: f.format_id,
-            ext: f.ext,
-            resolution: f.resolution || f.format_note || '',
-            filesize: f.filesize || f.filesize_approx,
-            filesizeString: f.filesize ? formatBytes(f.filesize) : '~' + formatBytes(f.filesize_approx)
-          })),
-        isXiaohongshu: !info.duration && info.extractor === 'XiaoHongShu'
-      });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to parse video info' });
-    }
-  });
+
+    const args = [
+      '--dump-json',
+      '--no-playlist',
+      '--remote-components', 'ejs:github',
+      ...(HAS_COOKIES ? ['--cookies', COOKIES_FILE] : []),
+      '--extractor-args', clients[idx],
+      url
+    ];
+
+    const proc = spawn(YT_DLP, args);
+    let pStdout = '';
+    let pStderr = '';
+
+    proc.stdout.on('data', (d) => { pStdout += d.toString(); });
+    proc.stderr.on('data', (d) => { pStderr += d.toString(); });
+
+    proc.on('close', (code) => {
+      if (code !== 0 || !pStdout) {
+        lastError = pStderr.slice(0, 800);
+        console.log(`[info] player_client=${clients[idx]} failed, trying next...`);
+        tryRun(clients, idx + 1);
+        return;
+      }
+      try {
+        const info = JSON.parse(pStdout.split('\n')[0]);
+        res.json({
+          title: info.title || info.display_id || '未知标题',
+          duration: info.duration,
+          thumbnail: info.thumbnail,
+          uploader: info.uploader || info.channel || info.creator || '',
+          durationString: formatDuration(info.duration),
+          formats: (info.formats || [])
+            .filter(f => f.filesize || f.filesize_approx)
+            .map(f => ({
+              format_id: f.format_id,
+              ext: f.ext,
+              resolution: f.resolution || f.format_note || '',
+              filesize: f.filesize || f.filesize_approx,
+              filesizeString: f.filesize ? formatBytes(f.filesize) : '~' + formatBytes(f.filesize_approx)
+            })),
+          isXiaohongshu: !info.duration && info.extractor === 'XiaoHongShu'
+        });
+      } catch (e) {
+        res.status(500).json({ error: 'Failed to parse video info' });
+      }
+    });
+  }
 });
 
 // ---- 发起下载 ----
@@ -120,11 +177,21 @@ app.post('/api/download', (req, res) => {
 
   // 构建 yt-dlp 参数
   const outputTemplate = path.join(DOWNLOADS_DIR, `%(title).100s_%(id)s.%(ext)s`);
-  const args = ['--newline', '--no-playlist', '--embed-thumbnail', '--embed-metadata'];
+  const args = ['--newline', '--no-playlist', '--embed-thumbnail', '--embed-metadata', '--remote-components', 'ejs:github'];
+
+  // 如果有 cookie 文件，加上
+  if (HAS_COOKIES) {
+    args.push('--cookies', COOKIES_FILE);
+  }
 
   // 检测平台并添加对应参数
   const isXiaohongshu = /xiaohongshu\.com|xhslink/.test(url);
   const isYouTube = /youtube\.com|youtu\.be/.test(url);
+
+  if (isYouTube) {
+    // YouTube: 优先用 android 客户端（兼容性好，不需要 cookie）
+    args.push('--extractor-args', 'youtube:player_client=android');
+  }
 
   if (isXiaohongshu) {
     // 小红书: 下载最佳视频，无格式限制
