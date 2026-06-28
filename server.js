@@ -199,9 +199,14 @@ app.post('/api/download', (req, res) => {
   } else if (format === 'mp3') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else if (format === 'mp4') {
+    // 标准 mp4: 用 best，不限制分辨率（android 客户端可能只有 360p 可用，不限制就能拿 web/ios 的更高画质）
+    args.push('-f', 'bestvideo+bestaudio/best', '--merge-output-format', 'mp4');
+  } else if (format === 'hd720') {
+    args.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]', '--merge-output-format', 'mp4');
+  } else if (format === 'hd1080') {
     args.push('-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]', '--merge-output-format', 'mp4');
   } else {
-    // best
+    // best - 不限制，自动选最佳
     args.push('-f', 'bestvideo+bestaudio/best', '--merge-output-format', 'mp4');
   }
 

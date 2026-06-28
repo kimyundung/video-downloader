@@ -45,19 +45,25 @@
           <h2 id="videoTitle"></h2>
           <p class="uploader" id="uploader"></p>
           <div class="format-selector">
-            <label>选择格式:</label>
+            <label>画质选择:</label>
             <div class="format-options" id="formatOptions">
               <label class="format-card selected" data-format="mp4">
                 <input type="radio" name="format" value="mp4" checked hidden>
                 <span class="format-icon">🎬</span>
-                <span class="format-name">MP4 视频</span>
-                <span class="format-desc">最高 1080p</span>
+                <span class="format-name">最佳画质</span>
+                <span class="format-desc">自动选择最佳</span>
               </label>
-              <label class="format-card" data-format="best">
-                <input type="radio" name="format" value="best" hidden>
-                <span class="format-icon">🔥</span>
-                <span class="format-name">最佳质量</span>
-                <span class="format-desc">原画质</span>
+              <label class="format-card" data-format="hd1080">
+                <input type="radio" name="format" value="hd1080" hidden>
+                <span class="format-icon">📺</span>
+                <span class="format-name">1080p</span>
+                <span class="format-desc">全高清</span>
+              </label>
+              <label class="format-card" data-format="hd720">
+                <input type="radio" name="format" value="hd720" hidden>
+                <span class="format-icon">📱</span>
+                <span class="format-name">720p</span>
+                <span class="format-desc">高清</span>
               </label>
               <label class="format-card" data-format="mp3">
                 <input type="radio" name="format" value="mp3" hidden>
