@@ -16,6 +16,9 @@ RUN curl -fsSL https://deno.land/install.sh | sh -s -- -y
 ENV DENO_INSTALL="/root/.deno"
 ENV PATH="${DENO_INSTALL}/bin:${PATH}"
 
+# 配置 yt-dlp 允许远程 JS challenge 组件
+RUN yt-dlp --remote-components ejs:github 2>/dev/null || true
+
 # 创建 app 目录
 WORKDIR /app
 
