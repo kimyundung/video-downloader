@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Downloader</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div>
+          <h1>Video Downloader</h1>
+          <p class="subtitle">下载视频、Shorts、小红书</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- 输入区 -->
+    <section class="card input-section">
+      <div class="input-group">
+        <input
+          type="url"
+          id="urlInput"
+          placeholder="粘贴视频链接（YouTube / 小红书等）..."
+          autofocus
+        />
+        <button id="fetchBtn" class="btn btn-primary">
+          <span class="btn-icon">🔍</span>
+          获取信息
+        </button>
+      </div>
+    </section>
+
+    <!-- 视频信息预览 -->
+    <section class="card preview-section" id="previewSection" style="display:none">
+      <div class="preview">
+        <div class="thumbnail-container">
+          <img id="thumbnail" alt="Video thumbnail" />
+          <span class="duration-badge" id="durationBadge"></span>
+        </div>
+        <div class="preview-info">
+          <h2 id="videoTitle"></h2>
+          <p class="uploader" id="uploader"></p>
+          <div class="format-selector">
+            <label>选择格式:</label>
+            <div class="format-options" id="formatOptions">
+              <label class="format-card selected" data-format="mp4">
+                <input type="radio" name="format" value="mp4" checked hidden>
+                <span class="format-icon">🎬</span>
+                <span class="format-name">MP4 视频</span>
+                <span class="format-desc">最高 1080p</span>
+              </label>
+              <label class="format-card" data-format="best">
+                <input type="radio" name="format" value="best" hidden>
+                <span class="format-icon">🔥</span>
+                <span class="format-name">最佳质量</span>
+                <span class="format-desc">原画质</span>
+              </label>
+              <label class="format-card" data-format="mp3">
+                <input type="radio" name="format" value="mp3" hidden>
+                <span class="format-icon">🎵</span>
+                <span class="format-name">MP3 音频</span>
+                <span class="format-desc">320kbps</span>
+              </label>
+            </div>
+          </div>
+          <button id="downloadBtn" class="btn btn-download">
+            <span class="btn-icon">⬇️</span>
+            开始下载
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 进度区 -->
+    <section class="card progress-section" id="progressSection" style="display:none">
+      <div class="progress-container">
+        <div class="progress-header">
+          <span class="progress-title">正在下载...</span>
+          <span class="progress-percent" id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-details">
+          <span id="progressSpeed">-</span>
+          <span id="progressEta">ETA: --</span>
+        </div>
+        <button id="cancelBtn" class="btn btn-cancel">取消下载</button>
+      </div>
+    </section>
+
+    <!-- 完成区 -->
+    <section class="card complete-section" id="completeSection" style="display:none">
+      <div class="complete-content">
+        <div class="success-icon">✅</div>
+        <h2>下载完成!</h2>
+        <p class="complete-filename" id="completeFilename"></p>
+        <p class="complete-filesize" id="completeFilesize"></p>
+        <div class="complete-actions">
+          <a id="openFileBtn" class="btn btn-primary" download>打开文件</a>
+          <button id="downloadAgainBtn" class="btn btn-secondary">下载另一个</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 错误区 -->
+    <section class="card error-section" id="errorSection" style="display:none">
+      <div class="error-content">
+        <div class="error-icon">❌</div>
+        <h2>出错了</h2>
+        <p id="errorMessage"></p>
+        <button id="retryBtn" class="btn btn-secondary">重试</button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Powered by yt-dlp · 仅供个人学习使用</p>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
