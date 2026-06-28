@@ -70,7 +70,7 @@ app.get('/api/info', (req, res) => {
   const proc = spawn(YT_DLP, [
     '--dump-json',
     '--no-playlist',
-    '--extractor-args', 'youtube:player_client=ios&player_label=yt-dlp',
+    '--extractor-args', 'youtube:player_client=ios',
     url
   ]);
 
@@ -129,7 +129,7 @@ app.post('/api/download', (req, res) => {
 
   if (isYouTube) {
     // YouTube: 使用 ios 客户端避免 cookie 验证
-    args.push('--extractor-args', 'youtube:player_client=ios&player_label=yt-dlp');
+    args.push('--extractor-args', 'youtube:player_client=ios');
   }
 
   if (isXiaohongshu) {
