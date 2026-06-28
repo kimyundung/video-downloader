@@ -70,6 +70,7 @@ app.get('/api/info', (req, res) => {
   const proc = spawn(YT_DLP, [
     '--dump-json',
     '--no-playlist',
+    '--extractor-args', 'youtube:player_client=ios&player_label=yt-dlp',
     url
   ]);
 
@@ -125,6 +126,11 @@ app.post('/api/download', (req, res) => {
   // 检测平台并添加对应参数
   const isXiaohongshu = /xiaohongshu\.com|xhslink/.test(url);
   const isYouTube = /youtube\.com|youtu\.be/.test(url);
+
+  if (isYouTube) {
+    // YouTube: 使用 ios 客户端避免 cookie 验证
+    args.push('--extractor-args', 'youtube:player_client=ios&player_label=yt-dlp');
+  }
 
   if (isXiaohongshu) {
     // 小红书: 下载最佳视频，无格式限制
