@@ -80,6 +80,8 @@ app.get('/api/info', (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing url parameter' });
 
+  const isYouTube = /youtube\.com|youtu\.be/.test(url);
+
   const proc = spawn(YT_DLP, [
     '--dump-json',
     '--no-playlist',
