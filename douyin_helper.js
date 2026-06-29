@@ -66,7 +66,7 @@ async function extractDouyinVideo(videoUrl) {
 
     // Listen for the video detail API response
     const videoData = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout waiting for video data')), 25000);
+      const timeout = setTimeout(() => reject(new Error('Timeout waiting for video data')), 40000);
       
       page.on('response', async (response) => {
         const url = response.url();
@@ -81,7 +81,21 @@ async function extractDouyinVideo(videoUrl) {
         }
       });
 
-      page.goto(videoUrl, { waitUntil: 'networkidle2', timeout: 25000 }).catch(reject);
+      // Also capture video elements directly from the page after render
+      setTimeout(async () => {
+        try {
+          const videos = await page.evaluate(() => {
+            const v = document.querySelectorAll('video source');
+            return Array.from(v).map(s => s.src).filter(Boolean);
+          });
+          if (videos.length > 0) {
+            clearTimeout(timeout);
+            resolve({ aweme_detail: { desc: '', video: { play_addr: { url_list: videos } } } });
+          }
+        } catch (_) {}
+      }, 15000);
+
+      page.goto(videoUrl, { waitUntil: 'networkidle2', timeout: 40000 }).catch(reject);
     });
 
     const detail = videoData.aweme_detail;
