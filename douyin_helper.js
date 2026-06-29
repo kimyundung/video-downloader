@@ -9,12 +9,13 @@ const path = require('path');
 
 // Chrome paths (try different locations)
 const CHROME_PATHS = [
+  process.env.CHROME_PATH || '',
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',  // macOS
   '/usr/bin/chromium-browser',   // Linux
   '/usr/bin/chromium',            // Linux (alt)
   '/usr/bin/google-chrome',      // Linux (Chrome)
   '/usr/bin/google-chrome-stable', // Linux
-];
+].filter(Boolean);
 
 function findChrome() {
   for (const p of CHROME_PATHS) {

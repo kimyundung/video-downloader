@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20-bookworm-slim
 
 # 安装 Python, yt-dlp, Chromium (抖音 Puppeteer 需要)
 RUN apt-get update && apt-get install -y \
@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     chromium \
     chromium-sandbox \
+    chromium-l10n \
+    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install yt-dlp --break-system-packages
