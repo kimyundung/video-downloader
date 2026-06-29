@@ -4,3 +4,5 @@ downloads/
 *.log
 .DS_Store
 cookies_new.txt
+__pycache__/
+*.pyc

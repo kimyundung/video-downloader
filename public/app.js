@@ -131,6 +131,13 @@ async function fetchVideoInfo() {
     // 保存当前视频信息，用于下载
     window._currentVideoData = data;
 
+    // 抖音不可用提示
+    if (data.error === 'douyin_unavailable') {
+      showError(data.errorMessage || '当前环境不支持下载抖音视频');
+      setFetchBtnLoading(false);
+      return;
+    }
+
     setFetchBtnLoading(false);
   } catch (err) {
     setFetchBtnLoading(false);

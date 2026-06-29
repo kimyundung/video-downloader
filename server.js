@@ -111,8 +111,18 @@ app.get('/api/info', async (req, res) => {
       console.log(`[douyin] Extracting info via Puppeteer: ${url}`);
       const info = await extractDouyinVideo(url);
       
-      if (!info.videoUrl) {
-        return res.status(400).json({ error: '无法获取抖音视频链接' });
+      if (!info || !info.videoUrl) {
+        return res.json({
+          title: '抖音视频',
+          duration: 0,
+          durationString: '',
+          thumbnail: '',
+          uploader: '',
+          formats: [],
+          isDouyin: true,
+          error: 'douyin_unavailable',
+          errorMessage: '当前环境不支持下载抖音视频，请在本地运行或等待后续更新',
+        });
       }
 
       return res.json({
@@ -134,9 +144,17 @@ app.get('/api/info', async (req, res) => {
       });
     } catch (err) {
       console.error(`[douyin] Puppeteer error:`, err.message);
-      return res.status(400).json({
-        error: '无法获取抖音视频信息',
-        detail: err.message,
+      // 超时或无法访问 —> 降级提示
+      return res.json({
+        title: '抖音视频',
+        duration: 0,
+        durationString: '',
+        thumbnail: '',
+        uploader: '',
+        formats: [],
+        isDouyin: true,
+        error: 'douyin_unavailable',
+        errorMessage: '当前环境不支持下载抖音视频，请在本地运行或等待后续更新',
       });
     }
   }

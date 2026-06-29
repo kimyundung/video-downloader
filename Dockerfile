@@ -1,15 +1,12 @@
-FROM node:20-bookworm-slim
+FROM node:20-slim
 
-# 安装 Python, yt-dlp, Chromium (抖音 Puppeteer 需要)
+# 安装 Python, yt-dlp, ffmpeg
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg \
     unzip \
     curl \
-    chromium \
-    chromium-sandbox \
-    chromium-l10n \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,10 +19,6 @@ ENV PATH="${DENO_INSTALL}/bin:${PATH}"
 
 # 配置 yt-dlp 允许远程 JS challenge 组件
 RUN yt-dlp --remote-components ejs:github 2>/dev/null || true
-
-# Puppeteer 配置：指向系统 Chromium
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV CHROME_PATH=/usr/bin/chromium
 
 # 创建 app 目录
 WORKDIR /app
