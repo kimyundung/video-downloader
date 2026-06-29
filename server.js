@@ -5,6 +5,9 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 
+// ---- 抖音 Puppeteer 辅助 ----
+const { extractDouyinVideo } = require('./douyin_helper');
+
 // ---- 检测 yt-dlp 路径 ----
 function findYtDlp() {
   const candidates = [
@@ -94,13 +97,51 @@ function sendSSE(clients, data) {
 }
 
 // ---- 获取视频信息 ----
-app.get('/api/info', (req, res) => {
+app.get('/api/info', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing url parameter' });
 
   const isYouTube = /youtube\.com|youtu\.be/.test(url);
+  const isDouyin = /douyin\.com/.test(url);
+  const isXiaohongshu = /xiaohongshu\.com|xhslink/.test(url);
 
-  // 多个播放客户端策略，优先用不指定客户端的默认方式（自动选择最佳画质）
+  // 抖音特殊处理：用 Puppeteer 获取视频信息
+  if (isDouyin) {
+    try {
+      console.log(`[douyin] Extracting info via Puppeteer: ${url}`);
+      const info = await extractDouyinVideo(url);
+      
+      if (!info.videoUrl) {
+        return res.status(400).json({ error: '无法获取抖音视频链接' });
+      }
+
+      return res.json({
+        title: info.title || '抖音视频',
+        duration: info.duration,
+        durationString: info.duration ? formatDuration(info.duration / 1000) : '',
+        thumbnail: info.thumbnail,
+        uploader: info.uploader || '',
+        formats: [{
+          format_id: 'best',
+          ext: 'mp4',
+          resolution: '最佳画质',
+          filesize: 0,
+          filesizeString: '抖音视频',
+          url: info.videoUrl,
+        }],
+        isDouyin: true,
+        allUrls: info.allUrls,
+      });
+    } catch (err) {
+      console.error(`[douyin] Puppeteer error:`, err.message);
+      return res.status(400).json({
+        error: '无法获取抖音视频信息',
+        detail: err.message,
+      });
+    }
+  }
+
+  // 原有的 YouTube / 通用处理
   const playerClients = [
     '',
     'youtube:player_client=android',
@@ -173,11 +214,22 @@ app.get('/api/info', (req, res) => {
 
 // ---- 发起下载 ----
 app.post('/api/download', (req, res) => {
-  const { url, format } = req.body;
+  const { url, format, directUrl } = req.body;
   if (!url) return res.status(400).json({ error: 'Missing url' });
 
   const id = crypto.randomUUID();
 
+  // 检测平台
+  const isDouyin = /douyin\.com/.test(url);
+  const isXiaohongshu = /xiaohongshu\.com|xhslink/.test(url);
+  const isYouTube = /youtube\.com|youtu\.be/.test(url);
+
+  // 抖音特殊处理：直接用直链下载
+  if (isDouyin && directUrl) {
+    return handleDouyinDownload(directUrl, url, id, res);
+  }
+
+  // 原有 yt-dlp 下载逻辑
   // 构建 yt-dlp 参数
   const outputTemplate = path.join(DOWNLOADS_DIR, `%(title).100s_%(id)s.%(ext)s`);
   const args = ['--newline', '--no-playlist', '--embed-thumbnail', '--embed-metadata', '--remote-components', 'ejs:github'];
@@ -187,10 +239,7 @@ app.post('/api/download', (req, res) => {
     args.push('--cookies', COOKIES_FILE);
   }
 
-  // 检测平台并添加对应参数
-  const isXiaohongshu = /xiaohongshu\.com|xhslink/.test(url);
-  const isYouTube = /youtube\.com|youtu\.be/.test(url);
-
+  // 平台格式处理
   if (isYouTube) {
     // YouTube: 让 yt-dlp 自动选客户端（不指定 extractor-args，兼容性最好）
     // 不强制客户端，yt-dlp 会自动用 web + android 混合获取最高画质
@@ -405,6 +454,71 @@ function cleanupDownload(id) {
     }
     downloads.delete(id);
   }
+}
+
+// ---- 抖音下载处理（直链下载） ----
+function handleDouyinDownload(directUrl, originalUrl, id, res) {
+  const clients = new Set();
+  downloads.set(id, { clients, process: null, format: null, filename: null, cancelled: false });
+
+  // 返回下载 ID
+  res.json({ downloadId: id });
+
+  // 生成文件名
+  const ext = path.extname(new URL(directUrl).pathname).split('?')[0] || '.mp4';
+  const filename = `douyin_${Date.now()}_${id.slice(0, 8)}${ext}`;
+  const filePath = path.join(DOWNLOADS_DIR, filename);
+
+  // 用 curl 或 http.get 下载
+  const proc = spawn('curl', [
+    '-L', '--connect-timeout', '10', '--max-time', '120',
+    '-o', filePath,
+    '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    '-H', 'Referer: https://www.douyin.com/',
+    directUrl
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  downloads.get(id).process = proc;
+
+  let stderr = '';
+  proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+  proc.on('close', (code) => {
+    if (downloads.get(id)?.cancelled) {
+      sendSSE(clients, { type: 'cancelled' });
+      cleanupDownload(id);
+      return;
+    }
+
+    if (code !== 0 || !fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+      sendSSE(clients, { type: 'error', message: `下载失败 (code=${code})` });
+      try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+      cleanupDownload(id);
+      return;
+    }
+
+    const stats = fs.statSync(filePath);
+    if (stats.size > MAX_FILE_SIZE) {
+      fs.unlinkSync(filePath);
+      sendSSE(clients, { type: 'error', message: '文件超过 2GB 限制' });
+      cleanupDownload(id);
+      return;
+    }
+
+    sendSSE(clients, {
+      type: 'complete',
+      filename: filename,
+      filesize: formatBytes(stats.size),
+      downloadPath: `/downloads/${encodeURIComponent(filename)}`
+    });
+
+    setTimeout(() => cleanupDownload(id), 5000);
+  });
+
+  proc.on('error', (err) => {
+    sendSSE(clients, { type: 'error', message: err.message });
+    cleanupDownload(id);
+  });
 }
 
 // ---- 定时清理过期文件 ----

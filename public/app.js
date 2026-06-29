@@ -118,15 +118,18 @@ async function fetchVideoInfo() {
     videoTitle.textContent = data.title || '未知标题';
     uploader.textContent = data.uploader || '';
 
-    // 小红书不显示格式选择（直接最佳质量下载）
+    // 小红书/抖音不显示格式选择（直接最佳质量下载）
     const formatSelector = document.querySelector('.format-selector');
-    if (data.isXiaohongshu) {
+    if (data.isXiaohongshu || data.isDouyin) {
       formatSelector.style.display = 'none';
       downloadBtn.innerHTML = '<span class="btn-icon">⬇️</span> 下载视频';
     } else {
       formatSelector.style.display = '';
       downloadBtn.innerHTML = '<span class="btn-icon">⬇️</span> 开始下载';
     }
+
+    // 保存当前视频信息，用于下载
+    window._currentVideoData = data;
 
     setFetchBtnLoading(false);
   } catch (err) {
@@ -162,16 +165,25 @@ async function startDownload() {
   }
 
   const format = getSelectedFormat();
+  const videoData = window._currentVideoData || {};
+  const isDouyin = videoData.isDouyin;
+
   isDownloading = true;
   setDownloadBtnLoading(true);
   showSection(progressSection);
   resetProgress();
 
   try {
+    const body = { url: currentUrl, format };
+    // 抖音传直链，服务端直接下载
+    if (isDouyin && videoData.allUrls && videoData.allUrls.length > 0) {
+      body.directUrl = videoData.allUrls[0];
+    }
+
     const res = await fetch('/api/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: currentUrl, format })
+      body: JSON.stringify(body)
     });
 
     const data = await res.json();
